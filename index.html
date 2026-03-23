@@ -1,30 +1,228 @@
-function parseGrid(grid, siteName) {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CGM Leave Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --border: #e2e6ed;
+    --header-bg: #1a2233;
+    --header-text: #ffffff;
+    --accent: #2563eb;
+    --accent2: #0ea5e9;
+    --green: #16a34a;
+    --red: #dc2626;
+    --orange: #ea580c;
+    --gray: #6b7280;
+    --text: #1e293b;
+    --subtext: #64748b;
+    --row-alt: #f8fafc;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
 
+  /* HEADER */
+  .header { background: var(--header-bg); color: var(--header-text); padding: 14px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .header-icon { font-size: 22px; }
+  .header-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-sub { font-size: 12px; opacity: 0.6; margin-left: 6px; font-weight: 400; }
+
+  /* SITE TABS */
+  .site-tabs { background: #222e42; display: flex; gap: 0; overflow-x: auto; border-bottom: 2px solid #2d3a52; }
+  .site-tab { padding: 10px 22px; cursor: pointer; font-size: 13px; font-weight: 600; color: #94a3b8; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; letter-spacing: 0.3px; }
+  .site-tab:hover { color: #e2e8f0; background: #2a3650; }
+  .site-tab.active { color: #60a5fa; border-bottom-color: #3b82f6; background: #1e2d47; }
+
+  /* FILTERS */
+  .filters { background: var(--surface); padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 10px; box-shadow: var(--shadow); }
+  .filter-group { display: flex; align-items: center; gap: 6px; }
+  .filter-label { font-size: 12px; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.5px; }
+  select { border: 1.5px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 13px; font-family: inherit; background: var(--surface); color: var(--text); cursor: pointer; outline: none; transition: border-color 0.2s; }
+  select:focus { border-color: var(--accent); }
+  .btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+  .btn-reset { background: var(--surface); border: 1.5px solid var(--border); color: var(--subtext); }
+  .btn-reset:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-copy { background: #1e40af; color: white; }
+  .btn-copy:hover { background: #1d4ed8; }
+  .btn-csv { background: #15803d; color: white; }
+  .btn-csv:hover { background: #166534; }
+
+  /* STATS */
+  .stats { display: flex; gap: 12px; padding: 16px 20px; flex-wrap: wrap; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 20px; min-width: 140px; box-shadow: var(--shadow); }
+  .stat-num { font-size: 28px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; line-height: 1; }
+  .stat-label { font-size: 11px; color: var(--subtext); margin-top: 4px; font-weight: 500; }
+  .stat-blue { color: var(--accent); }
+  .stat-sky { color: var(--accent2); }
+  .stat-orange { color: var(--orange); }
+  .stat-red { color: var(--red); }
+  .stat-purple { color: #7c3aed; }
+
+  /* LEGEND */
+  .legend { padding: 6px 20px 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .legend-title { font-size: 11px; font-weight: 700; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.8px; margin-right: 4px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--subtext); }
+  .badge-code { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+  .code-LN { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+  .code-LM { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .code-A  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .code-T  { background: #fce7f3; color: #9d174d; border: 1px solid #f9a8d4; }
+  .code-LO { background: #dcfce7; color: #14532d; border: 1px solid #86efac; }
+  .code-LR { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+
+  /* TABLE */
+  .table-wrap { padding: 0 20px 30px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border); }
+  thead tr { background: var(--header-bg); color: white; }
+  th { padding: 11px 14px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+  th:first-child { width: 40px; text-align: center; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: #eff6ff; }
+  td { padding: 10px 14px; vertical-align: top; }
+  td:first-child { text-align: center; color: var(--subtext); font-size: 12px; font-weight: 500; }
+  .cgm-id { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px; color: #1e40af; }
+  .driver-name { font-weight: 600; font-size: 13px; }
+  .status-active { color: var(--green); font-weight: 700; font-size: 12px; }
+  .status-inactive { color: var(--gray); font-weight: 600; font-size: 12px; }
+  .status-blacklisted { color: var(--red); font-weight: 700; font-size: 12px; }
+  .status-terminated { color: var(--orange); font-weight: 700; font-size: 12px; }
+  .month-cell { font-weight: 600; font-size: 13px; white-space: nowrap; }
+  .total-days { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 15px; color: var(--accent); }
+  .dates-cell { display: flex; flex-wrap: wrap; gap: 4px; max-width: 520px; }
+  .date-chip { padding: 2px 7px; border-radius: 20px; font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; white-space: nowrap; }
+
+  /* LOADING & EMPTY */
+  .loading { text-align: center; padding: 60px 20px; color: var(--subtext); }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { text-align: center; padding: 50px; color: var(--subtext); font-size: 15px; }
+  .error-msg { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 16px; border-radius: 8px; margin: 12px 20px; font-size: 13px; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; opacity: 0; transform: translateY(10px); transition: all 0.3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 600px) {
+    .filters { gap: 8px; }
+    .stats { gap: 8px; }
+    .stat-card { min-width: 110px; padding: 10px 14px; }
+    .stat-num { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-icon">🚗</span>
+  <span class="header-title" id="headerTitle">CGM Leave Tracker</span>
+  <span class="header-sub">Air Liquide · CGM Drivers · Mar 2025 – Mar 2026</span>
+</div>
+
+<div class="site-tabs" id="siteTabs"></div>
+
+<div class="filters">
+  <div class="filter-group"><span class="filter-label">Year</span>
+    <select id="filterYear"><option value="">All Years</option></select>
+  </div>
+  <div class="filter-group"><span class="filter-label">Month</span>
+    <select id="filterMonth"><option value="">All Months</option></select>
+  </div>
+  <div class="filter-group"><span class="filter-label">Leave Type</span>
+    <select id="filterType">
+      <option value="">All Types</option>
+      <option value="LN">LN – Leave Normal</option>
+      <option value="LM">LM – Leave Medical</option>
+      <option value="A">A – Absent</option>
+      <option value="T">T – Terminated</option>
+      <option value="LO">LO – Leave Other</option>
+      <option value="LR">LR – Leave Renewal</option>
+    </select>
+  </div>
+  <div class="filter-group"><span class="filter-label">Driver</span>
+    <select id="filterDriver"><option value="">All Drivers</option></select>
+  </div>
+  <button class="btn btn-reset" onclick="resetFilters()">↺ Reset</button>
+  <button class="btn btn-copy" onclick="copyForSheets()">📋 Copy for Google Sheets</button>
+  <button class="btn btn-csv" onclick="downloadCSV()">⬇ Download CSV</button>
+</div>
+
+<div class="stats" id="statsRow">
+  <div class="stat-card"><div class="stat-num stat-blue" id="s1">—</div><div class="stat-label">Records (Driver-Months)</div></div>
+  <div class="stat-card"><div class="stat-num stat-sky" id="s2">—</div><div class="stat-label">Drivers on Leave</div></div>
+  <div class="stat-card"><div class="stat-num stat-orange" id="s3">—</div><div class="stat-label">Total Leave Days</div></div>
+  <div class="stat-card"><div class="stat-num stat-red" id="s4">—</div><div class="stat-label">Absent Records</div></div>
+  <div class="stat-card"><div class="stat-num stat-purple" id="s5">—</div><div class="stat-label">Termination Records</div></div>
+</div>
+
+<div class="legend">
+  <span class="legend-title">Leave Details</span>
+  <span class="badge"><span class="badge-code code-LN">LN</span> Leave Normal</span>
+  <span class="badge"><span class="badge-code code-LM">LM</span> Leave Medical</span>
+  <span class="badge"><span class="badge-code code-A">A</span> Absent</span>
+  <span class="badge"><span class="badge-code code-T">T</span> Terminated</span>
+  <span class="badge"><span class="badge-code code-LO">LO</span> Leave Other</span>
+  <span class="badge"><span class="badge-code code-LR">LR</span> Leave Renewal</span>
+</div>
+
+<div class="table-wrap">
+  <div id="tableContainer"><div class="loading"><div class="spinner"></div>Loading data…</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SITES = [
+  { name: 'AL PUNE',      id: '1ob7mmaqs3_w1Z_zj9mBq9q7tVVWOVuxOVfp6RK3ZbiE' },
+  { name: 'JHAGADIA',     id: '1U3-v3bEV5XpZShwHTHsh1XjB1FdHAtMug4eO_MBs3xM' },
+  { name: 'DHARUHERA',    id: '1LhK2n_YOC4mkpE2UYPQYCiANdtpZ2f8-_UjW4mReQwE' },
+  { name: 'PANIPAT',      id: '1gidtBOI3hqhwFhKu8wYEomsOXmwidRTXlk5Kpm2FpfA' }
+];
+
+const MON_MAP = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
+const PRIO = ['T','A','LM','LN','LO','LR'];
+
+let currentSite = 0;
+let allData = {};   // keyed by site index
+let filtered = [];
+
+// ── CLASSIFY ──────────────────────────────────────────────
+function classify(v) {
+  if (!v) return null;
+  const s = String(v).trim().toUpperCase();
+  if (s === 'T' || s === 'TERMINATED') return 'T';
+  if (s === 'A' || s === 'ABSENT') return 'A';
+  if (s === 'LM' || s.includes('MEDICAL')) return 'LM';
+  if (s === 'LN' || s.includes('NORMAL') || s === 'L') return 'LN';
+  if (s === 'LO' || s.includes('OTHER')) return 'LO';
+  if (s === 'LR' || s.includes('RENEWAL')) return 'LR';
+  // Any leave-like value
+  if (['LEAVE','PL','SL','CL','EL','ML'].some(x => s.includes(x))) return 'LN';
+  return null;
+}
+
+// ── PARSE GRID ────────────────────────────────────────────
+function parseGrid(grid, siteName) {
   let hRow = 2;
   for (let i = 0; i < Math.min(15, grid.length); i++) {
-    if (grid[i].some(c => (c || '').toUpperCase().includes('CGM'))) {
-      hRow = i;
-      break;
-    }
+    if (grid[i].some(c => (c || '').toUpperCase().includes('CGM'))) { hRow = i; break; }
   }
-
   const above = hRow > 0 ? grid[hRow - 1] : [];
   const dayRow = grid[hRow];
-
   const months = {};
   let curMon = null;
-
   for (let c = 0; c < dayRow.length; c++) {
     const mv = (above[c] || '').trim();
-
     const m1 = mv.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[- ](\d{4})$/i);
-    if (m1) {
-      curMon = `${m1[1][0].toUpperCase() + m1[1].slice(1).toLowerCase()}-${m1[2]}`;
-    }
-
+    if (m1) curMon = `${m1[1][0].toUpperCase()+m1[1].slice(1).toLowerCase()}-${m1[2]}`;
     const dv = (dayRow[c] || '').trim();
     const day = dv === '21st' ? 21 : parseInt(dv);
-
     if (!isNaN(day) && day >= 1 && day <= 31 && curMon) {
       if (!months[curMon]) months[curMon] = {};
       months[curMon][day] = c;
@@ -32,99 +230,264 @@ function parseGrid(grid, siteName) {
   }
 
   const recs = [];
-  const PRIO = ['T', 'A', 'LM', 'LN', 'LO', 'LR'];
-
   let r = hRow + 1;
-
   while (r < grid.length) {
-
     const row = grid[r];
     const cgmId = (row[0] || '').trim();
+    if (!cgmId || !cgmId.toUpperCase().startsWith('CGM')) { r++; continue; }
 
-    // ❌ skip non-driver rows
-    if (!cgmId || !cgmId.startsWith('CGM')) {
-      r++;
-      continue;
-    }
-
-    // ✅ MERGED DATA (important fix)
-    const driverName = (row[4] || '').trim();
+    const driverName = (row[4] || row[2] || '').trim();
     const status = (row[3] || '').trim();
 
-    // ✅ dynamically collect merged rows (max 3)
-const block = [];
-let tempR = r;
-
-while (
-  tempR < grid.length &&
-  block.length < 3 &&
-  !(tempR !== r && (grid[tempR][0] || '').toUpperCase().startsWith('CGM'))
-) {
-  block.push(grid[tempR] || []);
-  tempR++;
-}
-
-// ensure at least 3 rows
-while (block.length < 3) block.push([]);
-
-const [r1, r2, r3] = block;
-
-    // 👉 COMBINE 3 ROWS DATA
-    function getCell(c) {
-      return (r1[c] || r2[c] || r3[c] || '').toString().trim();
+    // Collect up to 3 merged rows
+    const block = [];
+    let tempR = r;
+    while (tempR < grid.length && block.length < 3 &&
+           !(tempR !== r && (grid[tempR][0]||'').toUpperCase().startsWith('CGM'))) {
+      block.push(grid[tempR] || []);
+      tempR++;
     }
+    while (block.length < 3) block.push([]);
+    const [r1, r2, r3] = block;
 
-    // 🔥 PROCESS MONTH DATA
     Object.keys(months).forEach(month => {
       const daysMap = months[month];
-
-      let total = 0;
-      let dates = [];
-
+      let total = 0, dates = [];
       Object.keys(daysMap).forEach(d => {
         const col = daysMap[d];
-
-        const v1 = classify(r1[col]);
-        const v2 = classify(r2[col]);
-        const v3 = classify(r3[col]);
-
-        const vals = [v1, v2, v3];
-
+        const vals = [classify(r1[col]), classify(r2[col]), classify(r3[col])];
         const found = PRIO.find(p => vals.includes(p));
-
-        if (found) {
-          total++;
-          dates.push(`${d}(${found})`);
-        }
+        if (found) { total++; dates.push(`${d}(${found})`); }
       });
-
       if (total > 0) {
         const [monName, year] = month.split('-');
-
-        recs.push({
-          site: siteName,
-          cgmId,
-          driverName,
-          status,
-          month,
-          year: parseInt(year),
-          monNum: MON_MAP[monName],
-          totalDays: total,
+        recs.push({ site: siteName, cgmId, driverName, status, month, year: parseInt(year),
+          monNum: MON_MAP[monName], totalDays: total,
           leaveDates: dates.map(d => d.split('(')[0]).join(', '),
-          datesWithCode: dates.join(', ')
-        });
+          datesWithCode: dates.join(', ') });
       }
     });
 
-    // ✅ SMART JUMP (IMPORTANT)
     r = tempR;
-
     while (r < grid.length) {
-      const nextVal = (grid[r][0] || '').trim().toUpperCase();
-      if (nextVal.startsWith('CGM')) break;
+      if ((grid[r][0]||'').trim().toUpperCase().startsWith('CGM')) break;
       r++;
     }
   }
-
   return recs;
 }
+
+// ── FETCH SHEET ───────────────────────────────────────────
+async function fetchSheet(sheetId, siteName) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Sheet1`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const text = await resp.text();
+  const grid = parseCSV(text);
+  return parseGrid(grid, siteName);
+}
+
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { cols.push(cur); cur = ''; }
+      else { cur += ch; }
+    }
+    cols.push(cur);
+    rows.push(cols.map(c => c.replace(/^"|"$/g, '').trim()));
+  }
+  return rows;
+}
+
+// ── INIT TABS ─────────────────────────────────────────────
+function initTabs() {
+  const el = document.getElementById('siteTabs');
+  el.innerHTML = SITES.map((s,i) =>
+    `<div class="site-tab${i===0?' active':''}" onclick="switchSite(${i})">${s.name}</div>`
+  ).join('');
+}
+
+async function switchSite(idx) {
+  currentSite = idx;
+  document.querySelectorAll('.site-tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.getElementById('headerTitle').textContent = SITES[idx].name + ' — Driver Leave Tracker';
+  resetFilters(false);
+  if (allData[idx]) { renderAll(); return; }
+  showLoading();
+  try {
+    allData[idx] = await fetchSheet(SITES[idx].id, SITES[idx].name);
+    renderAll();
+  } catch(e) {
+    showError(e.message);
+  }
+}
+
+// ── FILTERS ───────────────────────────────────────────────
+function buildFilters() {
+  const recs = allData[currentSite] || [];
+  const years = [...new Set(recs.map(r => r.year))].sort();
+  const months = [...new Set(recs.map(r => r.month))].sort((a,b) => {
+    const [am,ay] = a.split('-'); const [bm,by] = b.split('-');
+    return (parseInt(ay)-parseInt(by)) || (MON_MAP[am]-MON_MAP[bm]);
+  });
+  const drivers = [...new Set(recs.map(r => r.driverName))].sort();
+
+  const fy = document.getElementById('filterYear');
+  const cur_y = fy.value;
+  fy.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+  if (cur_y) fy.value = cur_y;
+
+  const fm = document.getElementById('filterMonth');
+  const cur_m = fm.value;
+  fm.innerHTML = '<option value="">All Months</option>' + months.map(m => `<option value="${m}">${m}</option>`).join('');
+  if (cur_m) fm.value = cur_m;
+
+  const fd = document.getElementById('filterDriver');
+  const cur_d = fd.value;
+  fd.innerHTML = '<option value="">All Drivers</option>' + drivers.map(d => `<option value="${d}">${d}</option>`).join('');
+  if (cur_d) fd.value = cur_d;
+}
+
+function applyFilters() {
+  const year = document.getElementById('filterYear').value;
+  const month = document.getElementById('filterMonth').value;
+  const type = document.getElementById('filterType').value;
+  const driver = document.getElementById('filterDriver').value;
+  const recs = allData[currentSite] || [];
+  filtered = recs.filter(r => {
+    if (year && r.year != year) return false;
+    if (month && r.month !== month) return false;
+    if (driver && r.driverName !== driver) return false;
+    if (type) {
+      const codes = r.datesWithCode.match(/\(([^)]+)\)/g)?.map(x=>x.slice(1,-1)) || [];
+      if (!codes.includes(type)) return false;
+    }
+    return true;
+  });
+}
+
+function resetFilters(rerender=true) {
+  ['filterYear','filterMonth','filterType','filterDriver'].forEach(id => document.getElementById(id).value = '');
+  if (rerender) renderAll();
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function renderAll() {
+  buildFilters();
+  applyFilters();
+  updateStats();
+  renderTable();
+}
+
+function updateStats() {
+  const s1 = filtered.length;
+  const s2 = new Set(filtered.map(r => r.cgmId)).size;
+  const s3 = filtered.reduce((a,r) => a + r.totalDays, 0);
+  const s4 = filtered.filter(r => r.datesWithCode.includes('(A)')).length;
+  const s5 = filtered.filter(r => r.datesWithCode.includes('(T)')).length;
+  document.getElementById('s1').textContent = s1;
+  document.getElementById('s2').textContent = s2;
+  document.getElementById('s3').textContent = s3;
+  document.getElementById('s4').textContent = s4;
+  document.getElementById('s5').textContent = s5;
+}
+
+function getStatusClass(st) {
+  const s = (st||'').toUpperCase();
+  if (s === 'ACTIVE') return 'status-active';
+  if (s === 'INACTIVE') return 'status-inactive';
+  if (s === 'BLACKLISTED') return 'status-blacklisted';
+  if (s === 'TERMINATED') return 'status-terminated';
+  return 'status-inactive';
+}
+
+function renderDates(datesWithCode) {
+  return datesWithCode.split(',').map(s => {
+    s = s.trim();
+    const m = s.match(/^(\d+)\(([^)]+)\)$/);
+    if (!m) return '';
+    const [,day,code] = m;
+    return `<span class="date-chip code-${code}">${day}<sup>${code}</sup></span>`;
+  }).join('');
+}
+
+function renderTable() {
+  const container = document.getElementById('tableContainer');
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty">No records found for the selected filters.</div>';
+    return;
+  }
+  let html = `<table>
+    <thead><tr>
+      <th>#</th><th>CGM ID</th><th>Driver Name</th><th>Status</th>
+      <th>Month</th><th>Total Leave Days</th><th>Leave Dates (with code)</th>
+    </tr></thead><tbody>`;
+  filtered.forEach((r, i) => {
+    html += `<tr>
+      <td>${i+1}</td>
+      <td><span class="cgm-id">${r.cgmId}</span></td>
+      <td><span class="driver-name">${r.driverName || '—'}</span></td>
+      <td><span class="${getStatusClass(r.status)}">${r.status || '—'}</span></td>
+      <td class="month-cell">${r.month}</td>
+      <td><span class="total-days">${r.totalDays}</span></td>
+      <td><div class="dates-cell">${renderDates(r.datesWithCode)}</div></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function showLoading() {
+  document.getElementById('tableContainer').innerHTML = '<div class="loading"><div class="spinner"></div>Loading data from Google Sheets…</div>';
+  ['s1','s2','s3','s4','s5'].forEach(id => document.getElementById(id).textContent = '—');
+}
+
+function showError(msg) {
+  document.getElementById('tableContainer').innerHTML =
+    `<div class="error-msg">⚠️ Error loading data: ${msg}<br><small>Make sure the Google Sheet is shared publicly (Anyone with link → Viewer).</small></div>`;
+}
+
+// ── EXPORT ────────────────────────────────────────────────
+function downloadCSV() {
+  if (!filtered.length) { showToast('No data to export'); return; }
+  const headers = ['Site','CGM ID','Driver Name','Status','Month','Year','Total Days','Leave Dates','Dates with Code'];
+  const rows = filtered.map(r => [r.site,r.cgmId,r.driverName,r.status,r.month,r.year,r.totalDays,r.leaveDates,r.datesWithCode]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'cgm_leave_data.csv'; a.click();
+  showToast('CSV downloaded!');
+}
+
+function copyForSheets() {
+  if (!filtered.length) { showToast('No data to copy'); return; }
+  const headers = ['Site','CGM ID','Driver Name','Status','Month','Year','Total Days','Leave Dates','Dates with Code'];
+  const rows = filtered.map(r => [r.site,r.cgmId,r.driverName,r.status,r.month,r.year,r.totalDays,r.leaveDates,r.datesWithCode]);
+  const tsv = [headers, ...rows].map(r => r.join('\t')).join('\n');
+  navigator.clipboard.writeText(tsv).then(() => showToast('Copied! Paste into Google Sheets'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── FILTER EVENTS ─────────────────────────────────────────
+['filterYear','filterMonth','filterType','filterDriver'].forEach(id =>
+  document.getElementById(id).addEventListener('change', renderAll)
+);
+
+// ── START ─────────────────────────────────────────────────
+initTabs();
+switchSite(0);
+</script>
+</body>
+</html>
