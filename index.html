@@ -418,11 +418,16 @@ async function fetchSite(site) {
 
   const text = await resp.text();
 
-  console.log("RAW TEXT:", text);   // 👈 YE NEW LINE ADD KARO
+  console.log("RAW TEXT:", text);
 
-  const grid = parseCSV(text);
+  // 👇 FIX START
+  const startIndex = text.indexOf("CGM ID");
+  const cleanText = text.slice(startIndex);
+  // 👆 FIX END
 
-  console.log("DATA CHECK:", grid); // 👈 ye already hai
+  const grid = parseCSV(cleanText);
+
+  console.log("DATA CHECK:", grid);
 
   return parseGrid(grid, site.name); 
 }
