@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGM Driver Leave Tracker — Air Liquide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; font-size: 13px; }
+
+.header {
+  background: #1a2e4a; color: #fff;
+  padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+  height: 54px; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.header-logo { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #f0883e; font-family: monospace; }
+.header-title { font-size: 15px; font-weight: 600; }
+.header-sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+.refresh-btn {
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: #fff;
+  padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: background .15s; font-family: 'Inter', sans-serif;
+}
+.refresh-btn:hover { background: rgba(255,255,255,0.2); }
+.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.spin { display: inline-block; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.filter-bar {
+  background: #ffffff; border-bottom: 1px solid #e2e8f0;
+  padding: 12px 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.fg { display: flex; flex-direction: column; gap: 4px; }
+.fl { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.07em; }
+select {
+  background: #fff; border: 1px solid #cbd5e1; color: #1e293b;
+  padding: 7px 28px 7px 10px; border-radius: 6px; font-size: 12px;
+  cursor: pointer; font-family: 'Inter', sans-serif; min-width: 140px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center;
+  transition: border-color .15s;
+}
+select:focus { outline: none; border-color: #3b82f6; }
+.fa { margin-left: auto; display: flex; gap: 8px; }
+.btn {
+  padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; border: 1px solid;
+  display: flex; align-items: center; gap: 6px; transition: all .15s; white-space: nowrap;
+}
+.btn-reset { background: #fff; color: #64748b; border-color: #cbd5e1; }
+.btn-reset:hover { border-color: #94a3b8; }
+.btn-copy { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.btn-copy:hover { background: #dbeafe; }
+.btn-csv  { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.btn-csv:hover  { background: #dcfce7; }
+
+.stats-bar { padding: 16px 24px; display: flex; gap: 12px; flex-wrap: wrap; }
+.stat {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 14px 20px; flex: 1; min-width: 110px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.sn { font-size: 24px; font-weight: 700; line-height: 1; }
+.sl { font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 500; }
+.s-blue .sn   { color: #2563eb; }
+.s-amber .sn  { color: #d97706; }
+.s-red .sn    { color: #dc2626; }
+.s-purple .sn { color: #7c3aed; }
+.s-green .sn  { color: #16a34a; }
+
+.tabs-wrap { padding: 0 24px 4px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.stab {
+  padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1.5px solid #e2e8f0; background: #fff; color: #64748b;
+  transition: all .15s; display: flex; align-items: center; gap: 5px;
+}
+.stab:hover { border-color: #94a3b8; color: #334155; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+
+.legend { padding: 10px 24px 14px; display: flex; gap: 14px; flex-wrap: wrap; }
+.leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #475569; font-weight: 500; }
+.ldot { width: 10px; height: 10px; border-radius: 3px; }
+
+.table-wrap {
+  margin: 0 24px 24px; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: #1a2e4a; }
+thead th {
+  padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600;
+  color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f8fafc; }
+td { padding: 9px 14px; font-size: 12px; vertical-align: middle; }
+td.cgm-td { font-family: monospace; color: #64748b; font-size: 11px; font-weight: 600; }
+td.name-td { font-weight: 600; font-size: 13px; color: #0f172a; }
+td.total-td { text-align: center; font-size: 18px; font-weight: 700; color: #2563eb; }
+td.dates-td { max-width: 500px; }
+
+.sbadge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.sb-a { background: #dcfce7; color: #15803d; }
+.sb-i { background: #f1f5f9; color: #64748b; }
+.sb-l { background: #fef9c3; color: #854d0e; }
+.sb-b { background: #fee2e2; color: #b91c1c; }
+
+.chip {
+  display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; margin: 2px; border: 1px solid; font-family: monospace;
+}
+.c-LN { background:#fef9c3; color:#854d0e; border-color:#fde68a; }
+.c-LM { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.c-A  { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+.c-T  { background:#ede9fe; color:#5b21b6; border-color:#c4b5fd; }
+.c-LO { background:#dcfce7; color:#15803d; border-color:#86efac; }
+.c-LR { background:#ffedd5; color:#9a3412; border-color:#fdba74; }
+
+.loading-box {
+  padding: 60px; text-align: center; background: #fff;
+  margin: 0 24px 24px; border-radius: 10px; border: 1px solid #e2e8f0;
+}
+.spinner {
+  width: 36px; height: 36px; border: 3px solid #e2e8f0;
+  border-top-color: #2563eb; border-radius: 50%;
+  animation: spin .8s linear infinite; margin: 0 auto 14px;
+}
+.loading-text { color: #334155; font-size: 14px; font-weight: 500; }
+.loading-sub { color: #94a3b8; font-size: 12px; margin-top: 6px; }
+
+.error-box {
+  margin: 0 24px 16px; background: #fff5f5;
+  border: 1px solid #fca5a5; border-radius: 8px;
+  padding: 14px 18px; color: #b91c1c; font-size: 13px; line-height: 1.7;
+}
+.error-box a { color: #1d4ed8; }
+
+.empty-row td { text-align: center; padding: 40px; color: #94a3b8; font-size: 14px; }
+
+.toast {
+  position: fixed; bottom: 24px; right: 24px; background: #1a2e4a; color: #fff;
+  padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  z-index: 999; transform: translateY(60px); opacity: 0; transition: all .3s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+
+.guide {
+  margin: 0 24px 32px; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;
+}
+.guide-hdr {
+  padding: 14px 18px; font-size: 13px; font-weight: 600;
+  cursor: pointer; display: flex; justify-content: space-between;
+  background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #1e293b;
+}
+.guide-body { padding: 20px; display: none; font-size: 13px; line-height: 1.9; color: #475569; }
+.guide-body.open { display: block; }
+.guide-body h4 { color: #1e293b; font-size: 12px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.guide-body ol { padding-left: 20px; }
+.guide-body li { margin-bottom: 5px; }
+code { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 11px; color: #e11d48; }
+.copy-area { position: fixed; left: -9999px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="header-logo">CGM//ATT</div>
+    <div>
+      <div class="header-title">Driver Leave Tracker</div>
+      <div class="header-sub">Air Liquide · 4 Sites · Live Google Sheets</div>
+    </div>
+  </div>
+  <button class="refresh-btn" id="refreshBtn" onclick="loadAllData()">
+    <span id="rIcon">⟳</span> Refresh Data
+  </button>
+</div>
+
+<div class="filter-bar">
+  <div class="fg"><div class="fl">Year</div>
+    <select id="fYear" onchange="applyFilters()">
+      <option value="all">All Years</option>
+      <option value="2025">2025</option>
+      <option value="2026">2026</option>
+    </select>
+  </div>
+  <div class="fg"><div class="fl">Month</div>
+    <select id="fMonth" onchange="applyFilters()"><option value="all">All Months</option></select>
+  </div>
+  <div class="fg"><div class="fl">Leave Type</div>
+    <select id="fCode" onchange="applyFilters()">
+      <option value="all">All Types</option>
+      <option value="LN">LN — Leave Normal</option>
+      <option value="LM">LM — Leave Medical</option>
+      <option value="A">A — Absent</option>
+      <option value="T">T — Terminated</option>
+      <option value="LO">LO — Leave Other</option>
+      <option value="LR">LR — Leave Renewal</option>
+    </select>
+  </div>
+  <div class="fg"><div class="fl">Driver</div>
+    <select id="fDriver" onchange="applyFilters()"><option value="all">All Drivers</option></select>
+  </div>
+  <div class="fa">
+    <button class="btn btn-reset" onclick="resetFilters()">✕ Reset</button>
+    <button class="btn btn-copy" onclick="copyForSheets()">📋 Copy for Sheets</button>
+    <button class="btn btn-csv"  onclick="downloadCSV()">⬇ CSV</button>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat s-blue">  <div class="sn" id="st1">—</div><div class="sl">Records</div></div>
+  <div class="stat s-amber"> <div class="sn" id="st2">—</div><div class="sl">Drivers on Leave</div></div>
+  <div class="stat s-red">   <div class="sn" id="st3">—</div><div class="sl">Total Leave Days</div></div>
+  <div class="stat s-purple"><div class="sn" id="st4">—</div><div class="sl">Absent (A)</div></div>
+  <div class="stat s-red">   <div class="sn" id="st5">—</div><div class="sl">Terminated (T)</div></div>
+  <div class="stat s-green"> <div class="sn" id="st6">—</div><div class="sl">Sites Loaded</div></div>
+</div>
+
+<div class="tabs-wrap"><div class="tabs" id="siteTabs"></div></div>
+
+<div class="legend">
+  <span class="leg"><span class="ldot" style="background:#fde68a"></span>LN Leave Normal</span>
+  <span class="leg"><span class="ldot" style="background:#93c5fd"></span>LM Leave Medical</span>
+  <span class="leg"><span class="ldot" style="background:#fca5a5"></span>A Absent</span>
+  <span class="leg"><span class="ldot" style="background:#c4b5fd"></span>T Terminated</span>
+  <span class="leg"><span class="ldot" style="background:#86efac"></span>LO Leave Other</span>
+  <span class="leg"><span class="ldot" style="background:#fdba74"></span>LR Leave Renewal</span>
+</div>
+
+<div id="errorBox"></div>
+
+<div class="loading-box" id="loadingBox">
+  <div class="spinner"></div>
+  <div class="loading-text">Google Sheets se data load ho raha hai...</div>
+  <div class="loading-sub" id="loadSub">Connecting...</div>
+</div>
+
+<div class="table-wrap" id="tableWrap" style="display:none">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>CGM ID</th><th>Driver Name</th><th>Site</th>
+        <th>Status</th><th>Month</th>
+        <th style="text-align:center">Leave Days</th>
+        <th>Dates (with leave code)</th>
+      </tr>
+    </thead>
+    <tbody id="tBody"></tbody>
+  </table>
+</div>
+
+<div class="guide">
+  <div class="guide-hdr" onclick="toggleGuide()">
+    📖 GitHub Pages pe Publish karne ke Steps &nbsp;<span id="gArrow">▼</span>
+  </div>
+  <div class="guide-body" id="gBody">
+    <h4>Step 1 — GitHub Account (already hai toh skip karo)</h4>
+    <ol><li><a href="https://github.com" target="_blank" style="color:#2563eb">github.com</a> → Sign up → free hai</li></ol>
+    <h4>Step 2 — New Repository banao</h4>
+    <ol>
+      <li>Login → top-right <strong>+</strong> → <strong>New repository</strong></li>
+      <li>Name: <code>cgm-leave-tracker</code> &nbsp;·&nbsp; <strong>Public</strong> select karo</li>
+      <li>"Add a README file" tick karo → <strong>Create repository</strong></li>
+    </ol>
+    <h4>Step 3 — index.html Upload karo</h4>
+    <ol>
+      <li>Repository mein → <strong>Add file → Upload files</strong></li>
+      <li><strong>index.html</strong> (jo download ki) drag & drop karo → <strong>Commit changes</strong></li>
+    </ol>
+    <h4>Step 4 — GitHub Pages Enable karo</h4>
+    <ol>
+      <li>Repository → <strong>Settings</strong> → left mein <strong>Pages</strong></li>
+      <li>Source: <code>Deploy from a branch</code> → Branch: <code>main</code> → <code>/(root)</code> → <strong>Save</strong></li>
+      <li>2-3 min baad link: <code>https://[username].github.io/cgm-leave-tracker/</code></li>
+    </ol>
+    <h4>Data update karna ho?</h4>
+    <ol>
+      <li>Google Sheet mein naya data add karo</li>
+      <li>App mein <strong>⟳ Refresh Data</strong> click karo — automatic update ✅</li>
+    </ol>
+  </div>
+</div>
+
+<div class="toast" id="toast">✅ Copied! Google Sheets mein Ctrl+V karo</div>
+<textarea class="copy-area" id="copyArea"></textarea>
+
+<script>
+const SITES = [
+  { name:'AL Pune',    id:'1ob7mmaqs3_w1Z_zj9mBq9q7tVVWOVuxOVfp6RK3ZbiE', color:'#2563eb' },
+  { name:'Jhagadia',  id:'1U3-v3bEV5XpZShwHTHsh1XjB1FdHAtMug4eO_MBs3xM', color:'#16a34a' },
+  { name:'Dharuhera', id:'1LhK2n_YOC4mkpE2UYPQYCiANdtpZ2f8-_UjW4mReQwE', color:'#ea580c' },
+  { name:'Panipat',   id:'1gidtBOI3hqhwFhKu8wYEomsOXmwidRTXlk5Kpm2FpfA', color:'#7c3aed' },
+];
+
+const LEAVE  = new Set(['LN','LM','A','T','LO','LR']);
+const PRESENT = new Set(['PIO','POT','DIC','TFR']);
+const MON_MAP = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+const MON_NAMES = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let ALL = [], activeSite = 'all', loadedCount = 0;
+
+function parseCSV(t) {
+  const rows = []; let inQ=false, cur='', row=[];
+  for (let i=0;i<t.length;i++) {
+    const c=t[i];
+    if (c==='"') inQ=!inQ;
+    else if (c===','&&!inQ) { row.push(cur.trim()); cur=''; }
+    else if ((c==='\n'||c==='\r')&&!inQ) {
+      if (c==='\r'&&t[i+1]==='\n') i++;
+      row.push(cur.trim()); rows.push(row); row=[]; cur='';
+    } else cur+=c;
+  }
+  if (cur||row.length) { row.push(cur.trim()); rows.push(row); }
+  return rows;
+}
+
+function classify(v) {
+  if (!v) return 'BLANK';
+  const s=v.trim().toUpperCase();
+  if (!s||s==='NAN') return 'BLANK';
+  if (LEAVE.has(s)) return s;
+  if (PRESENT.has(s)) return 'PRESENT';
+  if (/^\d{3,5}$/.test(s)) return 'PRESENT';
+  return 'OTHER';
+}
+
+function parseGrid(grid, siteName) {
+  // Find header row with "CGM ID"
+  let hRow = 2;
+  for (let i=0; i<Math.min(15,grid.length); i++) {
+    if (grid[i].some(c=>(c||'').trim().toUpperCase()==='CGM ID')) { hRow=i; break; }
+  }
+
+  const above = hRow>0 ? grid[hRow-1] : [];
+  const dayRow = grid[hRow];
+  const months = {};
+  let curMon = null;
+
+  for (let c=0; c<dayRow.length; c++) {
+    const mv = (above[c]||'').trim();
+    const m1 = mv.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[- ](\d{4})$/i);
+    if (m1) curMon = `${m1[1][0].toUpperCase()+m1[1].slice(1).toLowerCase()}-${m1[2]}`;
+    const m2 = mv.match(/^(\d{4})-(\d{2})-01/);
+    if (m2) curMon = `${MON_NAMES[parseInt(m2[2])]}-${m2[1]}`;
+
+    const dv = (dayRow[c]||'').trim();
+    const day = dv==='21st' ? 21 : parseInt(dv);
+    if (!isNaN(day) && day>=1 && day<=31 && curMon) {
+      if (!months[curMon]) months[curMon]={};
+      if (!months[curMon][day]) months[curMon][day]=c;
+    }
+  }
+
+  const recs=[];
+  const PRIO=['T','A','LM','LN','LO','LR'];
+  let r=hRow+1;
+
+  while (r<grid.length) {
+    const row=grid[r];
+    const cgmId=(row[0]||'').trim();
+    if (!/^CGM\d+/i.test(cgmId)) { r++; continue; }
+    const driverName=(row[4]||'').trim();
+    const status=(row[3]||'').trim();
+    const r1=grid[r]||[], r2=grid[r+1]||[], r3=grid[r+2]||[];
+
+    for (const [mon, cols] of Object.entries(months)) {
+      const parts=mon.split('-');
+      const year=parseInt(parts[1]);
+      const monNum=MON_MAP[parts[0]];
+      if (!monNum) continue;
+
+      const ld={};
+      for (const [dayStr,col] of Object.entries(cols)) {
+        const day=parseInt(dayStr);
+        let found=null;
+        for (const rd of [r1,r2,r3]) {
+          const c=classify(rd[col]||'');
+          if (LEAVE.has(c) && (!found||PRIO.indexOf(c)<PRIO.indexOf(found))) found=c;
+        }
+        if (found) ld[day]=found;
+      }
+
+      if (Object.keys(ld).length) {
+        const days=Object.keys(ld).map(Number).sort((a,b)=>a-b);
+        recs.push({
+          site:siteName, year, monNum, month:mon,
+          cgmId, driverName, status,
+          totalDays:days.length,
+          leaveDates:days.join(', '),
+          datesWithCode:days.map(d=>`${d}(${ld[d]})`).join(', '),
+        });
+      }
+    }
+    r+=3;
+  }
+  return recs;
+}
+
+async function fetchSite(site) {
+  // gviz/tq with tqx=out:csv is CORS-free for public sheets
+  const url=`https://docs.google.com/spreadsheets/d/${site.id}/gviz/tq?tqx=out:csv&gid=0`;
+  const resp=await fetch(url);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const text=await resp.text();
+  return parseGrid(parseCSV(text), site.name);
+}
+
+async function loadAllData() {
+  const btn=document.getElementById('refreshBtn');
+  btn.disabled=true;
+  document.getElementById('rIcon').innerHTML='<span class="spin">↻</span>';
+  document.getElementById('loadingBox').style.display='block';
+  document.getElementById('tableWrap').style.display='none';
+  document.getElementById('errorBox').innerHTML='';
+  ALL=[]; loadedCount=0;
+
+  const errors=[];
+  for (const site of SITES) {
+    document.getElementById('loadSub').textContent=`Loading ${site.name}...`;
+    try {
+      const recs=await fetchSite(site);
+      ALL=ALL.concat(recs);
+      loadedCount++;
+    } catch(e) {
+      errors.push({site, msg:e.message});
+    }
+  }
+
+  if (errors.length) {
+    document.getElementById('errorBox').innerHTML=`<div class="error-box">
+      ⚠️ Kuch sheets load nahi huyi:<br>
+      ${errors.map(e=>`<strong>${e.site.name}</strong>: ${e.msg} — 
+        <a href="https://docs.google.com/spreadsheets/d/${e.site.id}" target="_blank">Yahan click karo phir Refresh karo</a>`).join('<br>')}
+      <br><br><strong>Fix:</strong> Sheet → Share → General Access → "Anyone with the link" → Viewer ✅
+    </div>`;
+  }
+
+  populateFilters(); buildTabs(); applyFilters();
+  document.getElementById('loadingBox').style.display='none';
+  document.getElementById('tableWrap').style.display='block';
+  btn.disabled=false;
+  document.getElementById('rIcon').textContent='⟳';
+}
+
+function populateFilters() {
+  const seen=new Set();
+  const months=ALL
+    .map(r=>`${String(r.year).padStart(4,'0')}-${String(r.monNum).padStart(2,'0')}|||${r.month}`)
+    .filter(m=>{ if(seen.has(m)) return false; seen.add(m); return true; }).sort();
+  const ms=document.getElementById('fMonth');
+  ms.innerHTML='<option value="all">All Months</option>';
+  months.forEach(m=>{ const mo=m.split('|||')[1]; const o=document.createElement('option'); o.value=mo; o.textContent=mo; ms.appendChild(o); });
+  const drivers=[...new Set(ALL.map(r=>r.driverName))].filter(Boolean).sort();
+  const ds=document.getElementById('fDriver');
+  ds.innerHTML='<option value="all">All Drivers</option>';
+  drivers.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; ds.appendChild(o); });
+}
+
+function buildTabs() {
+  const wrap=document.getElementById('siteTabs');
+  wrap.innerHTML='';
+  const allT=document.createElement('div');
+  allT.className='stab'+(activeSite==='all'?' active':'');
+  if (activeSite==='all') allT.style.cssText='background:#1a2e4a;border-color:#1a2e4a;color:#fff;font-weight:600';
+  allT.textContent='🌐 All Sites';
+  allT.onclick=()=>{ activeSite='all'; buildTabs(); applyFilters(); };
+  wrap.appendChild(allT);
+  SITES.forEach(s=>{
+    const t=document.createElement('div');
+    t.className='stab'+(activeSite===s.name?' active':'');
+    if (activeSite===s.name) t.style.cssText=`background:${s.color};border-color:${s.color};color:#fff;font-weight:600`;
+    t.innerHTML=`<span class="dot" style="background:${s.color}"></span>${s.name}`;
+    t.onclick=()=>{ activeSite=s.name; buildTabs(); applyFilters(); };
+    wrap.appendChild(t);
+  });
+}
+
+function getFiltered() {
+  const yr=document.getElementById('fYear').value;
+  const mn=document.getElementById('fMonth').value;
+  const cd=document.getElementById('fCode').value;
+  const dr=document.getElementById('fDriver').value;
+  return ALL.filter(r=>{
+    if (activeSite!=='all'&&r.site!==activeSite) return false;
+    if (yr!=='all'&&r.year!=yr) return false;
+    if (mn!=='all'&&r.month!==mn) return false;
+    if (dr!=='all'&&r.driverName!==dr) return false;
+    if (cd!=='all'&&!r.datesWithCode.includes(`(${cd})`)) return false;
+    return true;
+  });
+}
+
+function sbadge(s) {
+  const u=(s||'').toUpperCase();
+  if (u==='ACTIVE') return `<span class="sbadge sb-a">Active</span>`;
+  if (u==='ON LEAVE') return `<span class="sbadge sb-l">On Leave</span>`;
+  if (u==='BLACKLISTED') return `<span class="sbadge sb-b">Blacklisted</span>`;
+  return `<span class="sbadge sb-i">${s||'—'}</span>`;
+}
+
+function chips(dwc) {
+  return (dwc||'').split(', ').map(item=>{
+    const m=item.match(/(\d+)\(([A-Z]+)\)/);
+    return m ? `<span class="chip c-${m[2]}">${m[1]}<sup style="font-size:9px;margin-left:1px">${m[2]}</sup></span>` : '';
+  }).join('');
+}
+
+function siteColor(n) { return (SITES.find(s=>s.name===n)||{color:'#64748b'}).color; }
+
+function applyFilters() {
+  const data=getFiltered();
+  document.getElementById('st1').textContent=data.length;
+  document.getElementById('st2').textContent=new Set(data.map(r=>r.cgmId)).size;
+  document.getElementById('st3').textContent=data.reduce((a,r)=>a+r.totalDays,0);
+  document.getElementById('st4').textContent=data.filter(r=>r.datesWithCode.includes('(A)')).length;
+  document.getElementById('st5').textContent=data.filter(r=>r.datesWithCode.includes('(T)')).length;
+  document.getElementById('st6').textContent=loadedCount+'/'+SITES.length;
+
+  const tbody=document.getElementById('tBody');
+  if (!data.length) { tbody.innerHTML=`<tr class="empty-row"><td colspan="8">Koi record nahi mila.</td></tr>`; return; }
+  tbody.innerHTML=data.map((r,i)=>`<tr>
+    <td style="color:#94a3b8;font-size:11px">${i+1}</td>
+    <td class="cgm-td">${r.cgmId}</td>
+    <td class="name-td">${r.driverName}</td>
+    <td><span style="color:${siteColor(r.site)};font-weight:700">● </span><span style="font-weight:500">${r.site}</span></td>
+    <td>${sbadge(r.status)}</td>
+    <td style="font-weight:600;color:#1e293b;white-space:nowrap">${r.month}</td>
+    <td class="total-td">${r.totalDays}</td>
+    <td class="dates-td">${chips(r.datesWithCode)}</td>
+  </tr>`).join('');
+}
+
+function resetFilters() {
+  ['fYear','fMonth','fCode','fDriver'].forEach(id=>document.getElementById(id).value='all');
+  activeSite='all'; buildTabs(); applyFilters();
+}
+
+function copyForSheets() {
+  const data=getFiltered();
+  const tsv=[
+    ['Year','Month','Site','CGM ID','Driver Name','Status','Total Leave Days','Leave Dates (with code)'],
+    ...data.map(r=>[r.year,r.month,r.site,r.cgmId,r.driverName,r.status,r.totalDays,r.datesWithCode])
+  ].map(r=>r.join('\t')).join('\n');
+  document.getElementById('copyArea').value=tsv;
+  document.getElementById('copyArea').select();
+  document.execCommand('copy');
+  const t=document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function downloadCSV() {
+  const data=getFiltered();
+  const csv=[
+    ['Year','Month','Site','CGM_ID','Driver_Name','Status','Total_Leave_Days','Leave_Dates','Dates_With_Code'],
+    ...data.map(r=>[r.year,r.month,r.site,r.cgmId,r.driverName,r.status,r.totalDays,`"${r.leaveDates}"`,`"${r.datesWithCode}"`])
+  ].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`CGM_Leave_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function toggleGuide() {
+  const b=document.getElementById('gBody');
+  b.classList.toggle('open');
+  document.getElementById('gArrow').textContent=b.classList.contains('open')?'▲':'▼';
+}
+
+loadAllData();
+</script>
+</body>
+</html>
