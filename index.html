@@ -51,9 +51,23 @@ function parseGrid(grid, siteName) {
     const driverName = (row[4] || '').trim();
     const status = (row[3] || '').trim();
 
-    const r1 = grid[r] || [];
-    const r2 = grid[r + 1] || [];
-    const r3 = grid[r + 2] || [];
+    // ✅ dynamically collect merged rows (max 3)
+const block = [];
+let tempR = r;
+
+while (
+  tempR < grid.length &&
+  block.length < 3 &&
+  !(tempR !== r && (grid[tempR][0] || '').toUpperCase().startsWith('CGM'))
+) {
+  block.push(grid[tempR] || []);
+  tempR++;
+}
+
+// ensure at least 3 rows
+while (block.length < 3) block.push([]);
+
+const [r1, r2, r3] = block;
 
     // 👉 COMBINE 3 ROWS DATA
     function getCell(c) {
@@ -103,7 +117,7 @@ function parseGrid(grid, siteName) {
     });
 
     // ✅ SMART JUMP (IMPORTANT)
-    r += 3;
+    r = tempR;
 
     while (r < grid.length) {
       const nextVal = (grid[r][0] || '').trim().toUpperCase();
