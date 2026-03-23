@@ -412,16 +412,19 @@ function parseGrid(grid, siteName) {
 
 async function fetchSite(site) {
   const url=`https://docs.google.com/spreadsheets/d/${site.id}/export?format=csv&gid=0`;
+  
   const resp=await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
   const text = await resp.text();
+
+  console.log("RAW TEXT:", text);   // 👈 YE NEW LINE ADD KARO
+
   const grid = parseCSV(text);
 
-  console.log("DATA CHECK:", grid);   // 👈 YE LINE ADD KARO
+  console.log("DATA CHECK:", grid); // 👈 ye already hai
 
-  return parseGrid(grid, site.name);
-}
+  return parseGrid(grid, site.name); 
 }
 
 async function loadAllData() {
