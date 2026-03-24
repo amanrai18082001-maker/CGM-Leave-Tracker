@@ -189,7 +189,7 @@ function parseGrid(grid, siteName){
       if (!isNaN(parseInt(val))) score += 1;
     }
 
-    if (score >= 8) {
+    if (score >= 4) {
       hRow = i;
       break;
     }
@@ -198,41 +198,35 @@ function parseGrid(grid, siteName){
   if (hRow === -1) hRow = 2;
 
 
-  // ── STEP 2: SAFE MONTH MAPPING ──
-  const colMon = {};
+// ── STEP 2: FIXED MONTH MAPPING (handles hidden + merged headers) ──
+const colMon = {};
 
-  for (let ri = 0; ri < hRow; ri++) {
-    const row = grid[ri] || [];
+for (let ri = 0; ri < hRow; ri++) {
+  const row = grid[ri] || [];
 
-    for (let c = 0; c < row.length; c++) {
-      const mon = parseMon(row[c]);
+  for (let c = 0; c < row.length; c++) {
 
-      if (mon) {
-        let assigned = 0;
+    const mon = parseMon(row[c]);
 
-        for (let k = c; k < row.length; k++) {
+    if (mon) {
 
-          const nextCell = (grid[hRow] && grid[hRow][k])
-            ? grid[hRow][k].toString().trim()
-            : '';
+      let k = c;
 
-          const day = parseInt(nextCell);
+      while (k < row.length) {
 
-          if (!isNaN(day) && day >= 1 && day <= 31) {
-            colMon[k] = mon;
-            assigned++;
-          }
-          else if (nextCell === '' || isNaN(day)) {
-            continue;
-          }
-          else if (assigned > 0) {
-            break;
-          }
-        }
+        const nextMon = parseMon(row[k]);
+
+        // stop only if another month header found
+        if (k !== c && nextMon) break;
+
+        colMon[k] = mon;
+        k++;
       }
     }
   }
+}
 
+console.log("Mapped Months:", Object.values(colMon));
 
   // ── STEP 3: BUILD MONTH MAP ──
   const months = {};
@@ -242,7 +236,7 @@ function parseGrid(grid, siteName){
     const dv = (dayRow[c] || '').toString().trim();
     const day = dv.toLowerCase() === '21st' ? 21 : parseInt(dv);
 
-    if (!isNaN(day) && day >= 1 && day <= 31 && colMon[c] && dv !== '') {
+    if (!isNaN(day) && day >= 1 && day <= 31 && colMon[c])
       const mon = colMon[c];
 
       if (!months[mon]) months[mon] = {};
