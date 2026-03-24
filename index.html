@@ -173,101 +173,166 @@ function parseCSV(text){
 }
 
 function parseGrid(grid, siteName){
-  // ── STEP 1: Find header row (has "CGM ID" in col 0)
-  let hRow=2;
-  for(let i=0;i<Math.min(10,grid.length);i++){
-    const c0=(grid[i][0]||'').toString().toUpperCase().trim();
-    if(c0==='CGM ID'||c0==='CGM\nID'){hRow=i;break;}
-    // Check all cells in row for "CGM ID"
-    for(let c=0;c<Math.min(5,grid[i].length);c++){
-      if((grid[i][c]||'').toString().toUpperCase().trim()==='CGM ID'){hRow=i;break;}
+
+  // ── STEP 1: SMART HEADER DETECTION ──
+  let hRow = -1;
+
+  for (let i = 0; i < Math.min(15, grid.length); i++) {
+    const row = grid[i] || [];
+    let score = 0;
+
+    for (let c = 0; c < row.length; c++) {
+      const val = (row[c] || '').toString().toUpperCase().trim();
+
+      if (val.includes('CGM')) score += 5;
+      if (val.includes('ID')) score += 3;
+      if (!isNaN(parseInt(val))) score += 1;
+    }
+
+    if (score >= 8) {
+      hRow = i;
+      break;
     }
   }
 
-  // ── STEP 2: Build col→month mapping
-  // Key insight: In merged cells exported to CSV, only the FIRST cell of the merge has value.
-  // Month label in row 0/1, then day numbers 1..31 follow immediately.
-  // We scan ALL rows above hRow. For each cell with a month string, we forward-propagate
-  // to ALL subsequent columns (overriding only when a new month appears).
-  // BUT we must NOT propagate across "separator" columns (Total Days, blank, etc.)
-  // The safest approach: find month labels, then find the RANGE of day-number columns that follow.
+  if (hRow === -1) hRow = 2;
 
-  const colMon={};
 
-  for(let ri=0;ri<hRow;ri++){
-    const row=grid[ri]||[];
-    let lastMon=null;
-    // Forward scan: once we see a month, assign it to all subsequent cols until next month
-    for(let c=0;c<row.length;c++){
-      const mon=parseMon(row[c]);
-      if(mon){lastMon=mon;}
-      if(lastMon) colMon[c]=lastMon;
+  // ── STEP 2: SAFE MONTH MAPPING ──
+  const colMon = {};
+
+  for (let ri = 0; ri < hRow; ri++) {
+    const row = grid[ri] || [];
+
+    for (let c = 0; c < row.length; c++) {
+      const mon = parseMon(row[c]);
+
+      if (mon) {
+        let assigned = 0;
+
+        for (let k = c; k < row.length; k++) {
+
+          const nextCell = (grid[hRow] && grid[hRow][k])
+            ? grid[hRow][k].toString().trim()
+            : '';
+
+          const day = parseInt(nextCell);
+
+          if (!isNaN(day) && day >= 1 && day <= 31) {
+            colMon[k] = mon;
+            assigned++;
+          }
+          else if (nextCell === '' || isNaN(day)) {
+            continue;
+          }
+          else if (assigned > 0) {
+            break;
+          }
+        }
+      }
     }
   }
 
-  // ── STEP 3: Map day numbers from header row → {month: {day: col}}
-  const months={};
-  const dayRow=grid[hRow]||[];
-  for(let c=0;c<dayRow.length;c++){
-    const dv=(dayRow[c]||'').toString().trim();
-    const day=dv.toLowerCase()==='21st'?21:parseInt(dv);
-    if(!isNaN(day)&&day>=1&&day<=31&&colMon[c]){
-      const mon=colMon[c];
-      if(!months[mon]) months[mon]={};
-      if(!months[mon][day]) months[mon][day]=c;
+
+  // ── STEP 3: BUILD MONTH MAP ──
+  const months = {};
+  const dayRow = grid[hRow] || [];
+
+  for (let c = 0; c < dayRow.length; c++) {
+    const dv = (dayRow[c] || '').toString().trim();
+    const day = dv.toLowerCase() === '21st' ? 21 : parseInt(dv);
+
+    if (!isNaN(day) && day >= 1 && day <= 31 && colMon[c] && dv !== '') {
+      const mon = colMon[c];
+
+      if (!months[mon]) months[mon] = {};
+      if (!months[mon][day]) months[mon][day] = c;
     }
   }
 
-  // ── STEP 4: Parse driver data rows
-  const recs=[];
-  let r=hRow+1;
-  while(r<grid.length){
-    const row=grid[r]||[];
-    const c0=(row[0]||'').toString().trim();
-    if(!c0){r++;continue;}
-    if(!c0.toUpperCase().startsWith('CGM')){r++;continue;}
 
-    const cgmId=c0;
-    const status=(row[3]||'').toString().trim();
-    const driverName=(row[4]||'').toString().trim();
+  // ── STEP 4: DRIVER DATA ──
+  const recs = [];
+  let r = hRow + 1;
 
-    // Collect block of 3 rows (Driver + Co-Driver + Extra Driver)
-    const block=[row];
-    let tempR=r+1;
-    while(tempR<grid.length&&block.length<3){
-      const nr=grid[tempR]||[];
-      if((nr[0]||'').toString().trim().toUpperCase().startsWith('CGM')) break;
+  while (r < grid.length) {
+
+    const row = grid[r] || [];
+    const c0 = (row[0] || '').toString().trim();
+
+    if (!c0 || !c0.toUpperCase().startsWith('CGM')) {
+      r++;
+      continue;
+    }
+
+    const cgmId = c0;
+    const status = (row[3] || '').toString().trim();
+    const driverName = (row[4] || '').toString().trim();
+
+    const block = [row];
+    let tempR = r + 1;
+
+    while (tempR < grid.length && block.length < 3) {
+      const nr = grid[tempR] || [];
+      if ((nr[0] || '').toString().toUpperCase().startsWith('CGM')) break;
       block.push(nr);
       tempR++;
     }
-    while(block.length<3) block.push([]);
-    const[r1,r2,r3]=block;
 
-    // For each detected month, scan day columns
-    Object.keys(months).forEach(month=>{
-      const dm=months[month];
-      let total=0;const dates=[];
-      Object.keys(dm).map(Number).sort((a,b)=>a-b).forEach(d=>{
-        const col=dm[d];
-        const vals=[classify(r1[col]),classify(r2[col]),classify(r3[col])];
-        const found=PRIO.find(p=>vals.includes(p));
-        if(found){total++;dates.push(d+'('+found+')');}
+    while (block.length < 3) block.push([]);
+
+    const [r1, r2, r3] = block;
+
+    Object.keys(months).forEach(month => {
+
+      const dm = months[month];
+      let total = 0;
+      const dates = [];
+
+      Object.keys(dm).map(Number).sort((a,b)=>a-b).forEach(d => {
+
+        const col = dm[d];
+
+        const vals = [
+          classify(r1[col]),
+          classify(r2[col]),
+          classify(r3[col])
+        ];
+
+        const found = PRIO.find(p => vals.includes(p));
+
+        if (found) {
+          total++;
+          dates.push(d + '(' + found + ')');
+        }
       });
-      if(total>0){
-        const[mn,yr]=month.split('-');
-        recs.push({site:siteName,cgmId,driverName,status,month,
-          year:parseInt(yr),monNum:MON[mn]||0,totalDays:total,
-          leaveDates:dates.map(d=>d.split('(')[0]).join(', '),
-          datesWithCode:dates.join(', ')});
+
+      if (total > 0) {
+        const [mn, yr] = month.split('-');
+
+        recs.push({
+          site: siteName,
+          cgmId,
+          driverName,
+          status,
+          month,
+          year: parseInt(yr),
+          monNum: MON[mn] || 0,
+          totalDays: total,
+          leaveDates: dates.map(d => d.split('(')[0]).join(', '),
+          datesWithCode: dates.join(', ')
+        });
       }
     });
 
-    r=tempR;
-    while(r<grid.length){
-      if((grid[r][0]||'').toString().trim().toUpperCase().startsWith('CGM')) break;
+    r = tempR;
+
+    while (r < grid.length) {
+      if ((grid[r][0] || '').toString().toUpperCase().startsWith('CGM')) break;
       r++;
     }
   }
+
   return recs;
 }
 
